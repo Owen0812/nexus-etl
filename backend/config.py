@@ -17,12 +17,13 @@ class Settings(BaseSettings):
     # Qwen (OpenAI-compatible)
     qwen_api_key: str = ""
     qwen_api_base: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    qwen_model: str = "qwen-long"
+    qwen_model: str = "qwen-long"        # main model: orchestrator, semantic analysis
+    qwen_fast_model: str = "qwen-turbo"  # lightweight: metadata tagging, simple JSON tasks
     qwen_vision_model: str = "qwen-vl-max"
 
     # Embeddings
     embedding_model: str = "text-embedding-v3"
-    embedding_dim: int = 1536
+    embedding_dim: int = 1024
 
     # Langfuse
     langfuse_public_key: str = ""

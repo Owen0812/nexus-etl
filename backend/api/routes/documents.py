@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_db
 from backend.config import settings
+from backend.models.chunk import Chunk
 from backend.models.document import Document, DocumentStatus
+from backend.schemas.document import ChunkResponse
 from backend.tasks.pipeline import run_etl_pipeline
 
 router = APIRouter()
@@ -19,8 +21,9 @@ async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    _ALLOWED_EXTS = {".pdf", ".docx", ".doc", ".html", ".htm"}
+    if not file.filename or Path(file.filename).suffix.lower() not in _ALLOWED_EXTS:
+        raise HTTPException(status_code=400, detail="Supported formats: PDF, Word (.docx), HTML")
 
     upload_dir = Path(settings.upload_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -65,6 +68,40 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
         "file_hash": doc.file_hash,
         "created_at": doc.created_at.isoformat(),
     }
+
+
+@router.get("/{document_id}/chunks", response_model=list[ChunkResponse])
+async def get_document_chunks(
+    document_id: str,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+):
+    doc_uuid = uuid.UUID(document_id)
+    doc = await db.scalar(select(Document).where(Document.id == doc_uuid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    result = await db.execute(
+        select(Chunk)
+        .where(Chunk.document_id == doc_uuid)
+        .order_by(Chunk.chunk_index)
+        .offset(skip)
+        .limit(limit)
+    )
+    chunks = result.scalars().all()
+    return [
+        ChunkResponse(
+            id=str(c.id),
+            chunk_index=c.chunk_index,
+            chunk_type=c.chunk_type,
+            token_count=c.token_count,
+            quality_score=c.quality_score,
+            content=c.content,
+            chunk_metadata=c.chunk_metadata,
+        )
+        for c in chunks
+    ]
 
 
 @router.get("/")

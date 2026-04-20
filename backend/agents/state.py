@@ -33,6 +33,7 @@ class DocumentState(TypedDict):
     quality_report: dict[str, Any]
 
     # ── Control ───────────────────────────────────────────────────────────────
+    processing_strategy: str   # "vision" | "text"
     current_stage: str
     stages_completed: Annotated[list[str], operator.add]
     error: str | None

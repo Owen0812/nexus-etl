@@ -78,3 +78,31 @@ def vision_extractor_node(state: DocumentState) -> dict:
         "extracted_images": images,
         "stages_completed": ["vision_extractor"],
     }
+
+
+def text_extractor_node(state: DocumentState) -> dict:
+    """Fast path: pdfplumber text extraction only, no Qwen-VL calls."""
+    pages, tables = [], []
+
+    with pdfplumber.open(state["file_path"]) as pdf:
+        for page_num, page in enumerate(pdf.pages):
+            pages.append({
+                "page_num": page_num,
+                "text": page.extract_text() or "",
+                "width": page.width,
+                "height": page.height,
+            })
+            for tbl_idx, table_data in enumerate(page.extract_tables() or []):
+                tables.append({
+                    "page_num": page_num,
+                    "table_index": tbl_idx,
+                    "data": table_data,
+                    "vision_description": None,
+                })
+
+    return {
+        "raw_pages": pages,
+        "extracted_tables": tables,
+        "extracted_images": [],
+        "stages_completed": ["vision_extractor"],  # same stage key for unified tracking
+    }

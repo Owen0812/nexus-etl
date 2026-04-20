@@ -13,9 +13,12 @@ export default function FileUpload({ onUploadSuccess }: Props) {
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const ALLOWED_EXTS = ['.pdf', '.docx', '.doc', '.html', '.htm']
+
   const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setError('仅支持 PDF 文件')
+    const ext = '.' + file.name.toLowerCase().split('.').pop()
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError('仅支持 PDF、Word (.docx)、HTML 文件')
       return
     }
     setError(null)
@@ -44,7 +47,7 @@ export default function FileUpload({ onUploadSuccess }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.docx,.doc,.html,.htm"
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
       />
@@ -52,8 +55,8 @@ export default function FileUpload({ onUploadSuccess }: Props) {
         <p className="text-indigo-400 animate-pulse text-lg">正在上传...</p>
       ) : (
         <>
-          <p className="text-gray-300 text-lg">拖拽 PDF 到此处，或点击选择文件</p>
-          <p className="text-gray-600 text-sm mt-2">最大 100 MB · 仅支持 PDF</p>
+          <p className="text-gray-300 text-lg">拖拽文件到此处，或点击选择文件</p>
+          <p className="text-gray-600 text-sm mt-2">最大 100 MB · 支持 PDF、Word (.docx)、HTML</p>
         </>
       )}
       {error && <p className="text-red-400 mt-3 text-sm">{error}</p>}

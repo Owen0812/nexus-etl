@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { getTaskStatus } from '@/lib/api'
 
 const STAGES: [string, string][] = [
@@ -10,7 +11,16 @@ const STAGES: [string, string][] = [
   ['semantic_chunker',  '语义切块'],
   ['metadata_tagger',   '元数据标注'],
   ['quality_agent',     '质量过滤'],
+  ['embedding_writer',  '向量写入'],
 ]
+
+// Stage that logically comes after the last completed one
+function nextStage(done: string[]): string | null {
+  for (const [key] of STAGES) {
+    if (!done.includes(key)) return key
+  }
+  return null
+}
 
 interface QualityReport {
   total_chunks: number
@@ -40,6 +50,7 @@ export default function PipelineStatus({ taskId, documentId }: Props) {
       try {
         const data = await getTaskStatus(taskId)
         setStatus(data.status)
+        // PROGRESS meta and SUCCESS result both carry stages_completed
         if (data.result) setResult(data.result)
         if (['SUCCESS', 'FAILURE'].includes(data.status)) clearInterval(poll)
       } catch { /* keep polling */ }
@@ -48,11 +59,12 @@ export default function PipelineStatus({ taskId, documentId }: Props) {
   }, [taskId])
 
   const done: string[] = result?.stages_completed ?? []
+  const running = ['PENDING', 'STARTED', 'PROGRESS'].includes(status) ? nextStage(done) : null
   const qr = result?.quality_report
 
   const statusColor =
-    status === 'SUCCESS' ? 'bg-green-900 text-green-300' :
-    status === 'FAILURE' ? 'bg-red-900 text-red-300' :
+    status === 'SUCCESS'  ? 'bg-green-900 text-green-300' :
+    status === 'FAILURE'  ? 'bg-red-900 text-red-300' :
     'bg-yellow-900 text-yellow-300 animate-pulse'
 
   return (
@@ -62,18 +74,26 @@ export default function PipelineStatus({ taskId, documentId }: Props) {
         <span className={`text-xs px-3 py-1 rounded-full font-mono ${statusColor}`}>{status}</span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {STAGES.map(([key, label]) => (
-          <div
-            key={key}
-            className={`flex items-center gap-2 text-sm p-2 rounded ${
-              done.includes(key) ? 'text-green-400' : 'text-gray-600'
-            }`}
-          >
-            <span className="font-mono">{done.includes(key) ? '✓' : '○'}</span>
-            <span>{label}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {STAGES.map(([key, label]) => {
+          const isDone    = done.includes(key)
+          const isRunning = running === key
+          return (
+            <div
+              key={key}
+              className={`flex items-center gap-2 text-sm p-2 rounded transition-colors ${
+                isDone    ? 'text-green-400' :
+                isRunning ? 'text-yellow-300 animate-pulse' :
+                'text-gray-600'
+              }`}
+            >
+              <span className="font-mono">
+                {isDone ? '✓' : isRunning ? '▶' : '○'}
+              </span>
+              <span>{label}</span>
+            </div>
+          )
+        })}
       </div>
 
       {qr && (
@@ -85,12 +105,28 @@ export default function PipelineStatus({ taskId, documentId }: Props) {
             <span>过滤：<strong className="text-red-400">{qr.filtered_out}</strong></span>
             <span>平均分：<strong>{qr.avg_quality_score}</strong></span>
             <span>通过率：<strong>{(qr.pass_rate * 100).toFixed(1)}%</strong></span>
+            {result?.chunk_count !== undefined && (
+              <span>已向量化：<strong className="text-indigo-400">{result.chunk_count}</strong></span>
+            )}
           </div>
         </div>
       )}
 
+      {status === 'SUCCESS' && documentId && (
+        <Link
+          href={`/results/${documentId}`}
+          className="inline-block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+        >
+          查看切块结果 →
+        </Link>
+      )}
+
+      {status === 'FAILURE' && (
+        <p className="text-red-400 text-sm">Pipeline 处理失败，请重新上传。</p>
+      )}
+
       {documentId && (
-        <p className="text-gray-600 text-xs font-mono">doc: {documentId}</p>
+        <p className="text-gray-700 text-xs font-mono">doc: {documentId}</p>
       )}
     </div>
   )

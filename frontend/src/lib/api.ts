@@ -25,3 +25,9 @@ export async function listDocuments(skip = 0, limit = 20) {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+export async function getDocumentChunks(documentId: string, skip = 0, limit = 100) {
+  const res = await fetch(`${BASE}/documents/${documentId}/chunks?skip=${skip}&limit=${limit}`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

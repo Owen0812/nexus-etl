@@ -9,8 +9,11 @@ router = APIRouter()
 @router.get("/task/{task_id}")
 async def get_task_status(task_id: str):
     result = AsyncResult(task_id, app=celery_app)
+    # result.info holds the PROGRESS meta dict while task is running;
+    # result.result holds the return value after SUCCESS/FAILURE
+    payload = result.result if result.ready() else result.info
     return {
         "task_id": task_id,
         "status": result.status,
-        "result": result.result if result.ready() else None,
+        "result": payload,
     }
