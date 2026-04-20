@@ -6,7 +6,7 @@ from backend.db.session import async_session_factory
 from backend.models.chunk import Chunk
 from backend.utils.embeddings import embed_texts
 
-_EMBED_BATCH = 20
+_EMBED_BATCH = 10
 
 
 def _batched(seq, n):

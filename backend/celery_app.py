@@ -10,11 +10,25 @@ celery_app = Celery(
     include=["backend.tasks.pipeline"],
 )
 
+_worker_loop: asyncio.AbstractEventLoop | None = None
+
+
 @worker_process_init.connect
-def reset_db_pool(**kwargs):
-    """Dispose inherited asyncpg connections after fork — each worker needs its own pool."""
+def init_worker_event_loop(**kwargs):
+    """Create a persistent event loop per worker process; dispose inherited asyncpg pool."""
+    global _worker_loop
+    _worker_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(_worker_loop)
     from backend.db.session import engine
-    asyncio.run(engine.dispose())
+    _worker_loop.run_until_complete(engine.dispose())
+
+
+def get_worker_loop() -> asyncio.AbstractEventLoop:
+    global _worker_loop
+    if _worker_loop is None or _worker_loop.is_closed():
+        _worker_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_worker_loop)
+    return _worker_loop
 
 
 celery_app.conf.update(

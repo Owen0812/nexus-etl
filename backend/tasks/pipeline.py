@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Callable
@@ -124,8 +123,10 @@ def run_etl_pipeline(self, document_id: str, file_path: str, filename: str):
     def _push_progress(meta: dict):
         self.update_state(state="PROGRESS", meta=meta)
 
+    from backend.celery_app import get_worker_loop
+    loop = get_worker_loop()
     try:
-        return asyncio.run(
+        return loop.run_until_complete(
             _run_pipeline(document_id, file_path, filename, self.request.id or "", _push_progress)
         )
     except Exception as exc:
